@@ -12,11 +12,31 @@ const initialiseSocket = require('./src/utils/socket')
 
 
 app.use(cors({
-    origin: ["http://localhost:5173","https://ai-support-copilot-fe.vercel.app","https://ai-support-copilot-12xskvd4n-sanjaym1998-6981s-projects.vercel.app"],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        
+        // Allow localhost for development
+        if (origin.startsWith('http://localhost:')) {
+            return callback(null, true);
+        }
+        
+        // Allow all Vercel deployment URLs
+        if (origin.includes('.vercel.app')) {
+            return callback(null, true);
+        }
+        
+        // If you have a custom domain, add it here
+        // if (origin === 'https://your-custom-domain.com') {
+        //     return callback(null, true);
+        // }
+        
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "token", "Token"],
-    maxAge: 0 
+    maxAge: 0
 }));
 
 const server = http.createServer(app);
