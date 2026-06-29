@@ -6,23 +6,10 @@ const pool = require('./src/middleWare/connection/dbConfig');
 const commonService = require("./src/commonService");
 const registerRoutes = require('./routes')
 const cors = require("cors");
+const { corsOptions } = require('./src/utils/corsConfig');
 const app = express();
 const http = require('http');
 const initialiseSocket = require('./src/utils/socket')
-
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        if (origin.startsWith('http://localhost:')) return callback(null, true);
-        if (origin.includes('.vercel.app')) return callback(null, true);
-        callback(null, false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'token', 'Token', 'Accept', 'Origin', 'X-Requested-With'],
-    optionsSuccessStatus: 204,
-};
 
 app.use(cors(corsOptions));
 

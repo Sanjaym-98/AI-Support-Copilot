@@ -1,15 +1,10 @@
 const socket = require('socket.io');
-
+const { socketCorsOptions } = require('./corsConfig');
 
 const initialiseSocket = (server) => {
     try {
-
-
-
         const io = socket(server, {
-            cors: {
-                origin: "http://localhost:5173"
-            }
+            cors: socketCorsOptions,
         })
 
         io.on('connection', (socket) => {
