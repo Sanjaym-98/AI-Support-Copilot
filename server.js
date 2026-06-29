@@ -11,33 +11,21 @@ const http = require('http');
 const initialiseSocket = require('./src/utils/socket')
 
 
-app.use(cors({
+const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
-        
-        // Allow localhost for development
-        if (origin.startsWith('http://localhost:')) {
-            return callback(null, true);
-        }
-        
-        // Allow all Vercel deployment URLs
-        if (origin.includes('.vercel.app')) {
-            return callback(null, true);
-        }
-        
-        // If you have a custom domain, add it here
-        // if (origin === 'https://your-custom-domain.com') {
-        //     return callback(null, true);
-        // }
-        
-        callback(new Error('Not allowed by CORS'));
+        if (origin.startsWith('http://localhost:')) return callback(null, true);
+        if (origin.includes('.vercel.app')) return callback(null, true);
+        callback(null, false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "token", "Token"],
-    maxAge: 0
-}));
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'token', 'Token', 'Accept', 'Origin', 'X-Requested-With'],
+    optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 const server = http.createServer(app);
 
