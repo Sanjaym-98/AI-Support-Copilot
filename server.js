@@ -10,6 +10,7 @@ const { corsOptions } = require('./src/utils/corsConfig');
 const app = express();
 const http = require('http');
 const initialiseSocket = require('./src/utils/socket')
+const { startTicketWorker, stopTicketWorker } = require('./src/ticketWorker');
 
 app.use(cors(corsOptions));
 
@@ -49,7 +50,17 @@ if (typeof registerRoutes === 'function') {
         client.release(); 
         server.listen(process.env.PORT, () => {
             console.log(`Server running on port ${process.env.PORT}`);
+            startTicketWorker();
         });
+
+        const shutdown = async () => {
+            console.log('Shutting down...');
+            await stopTicketWorker();
+            server.close(() => process.exit(0));
+        };
+
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
 
     } catch (err) {
         console.log("err",err)

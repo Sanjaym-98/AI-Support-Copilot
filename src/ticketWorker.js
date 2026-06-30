@@ -1,108 +1,91 @@
-// const { Worker } = require('bullmq');
-// const connection = require('./middleWare/connection/redisConfig');
-// const aiService = require('./modules/ai-service/service')
-// const ticketService =require('./modules/tickets/service')
-
-
-
-// const worker = new Worker("ticket-processing", async (job) => {
-//     try {
-//         switch (job.name) {
-//             case "ai-analysis":
-//                 let getAIClassification = await aiService.AiClassification(job.data.description, job.data.ticketType);
-//                 let updateTicketData = await ticketService.updateTicketAiClassification(getAIClassification, job.data.ticketId)
-//                 break;
-//             default:
-//                 console.warn(`Unknown job name: ${job.name}`);
-//         }
-
-//     } catch (err) {
-//         console.error(`Job ${job.id} failed:`, error);
-//         throw error;
-//     }
-    
-// }, {
-//   connection,
-//   removeOnComplete: { count: 100 },
-//   removeOnFail: { count: 1000 }
-// });
-
-
-// console.log("BullMQ worker is running...");
-
-
-
-// Load environment variables first
-require('dotenv').config();
-
 const { Worker } = require('bullmq');
 const connection = require('./middleWare/connection/redisConfig');
 const aiService = require('./modules/ai-service/service');
 const ticketService = require('./modules/tickets/service');
 
-// Check if OpenAI API key is set
-if (!process.env.OPENROUTER_API_KEY && !process.env.OPENROUTER_API_KEY) {
-    console.error('❌ OpenAI API key is missing! Please set OPENAI_API_KEY or OPENAI_ADMIN_KEY in .env file');
-    // console.error('Current environment variables loaded:', Object.keys(process.env).filter(key => key.includes('OPENAI')));
-    process.exit(1);
-} else {
-    console.log('✅ OpenAI credentials found');
+let workerInstance = null;
+
+function startTicketWorker() {
+    if (workerInstance) {
+        return workerInstance;
+    }
+
+    if (!process.env.REDIS_URL) {
+        console.warn('⚠️ REDIS_URL not set — BullMQ worker not started');
+        return null;
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not set — BullMQ worker not started');
+        return null;
+    }
+
+    console.log('✅ OpenRouter credentials found');
+    console.log('Redis config:', connection ? '✅ Loaded' : '❌ Failed');
+
+    workerInstance = new Worker('ticket-processing', async (job) => {
+        try {
+            switch (job.name) {
+                case 'ai-analysis':
+                    console.log(`🤖 Processing AI analysis for ticket ${job.data.ticketId}`);
+                    const classification = await aiService.AiClassification(
+                        job.data.description,
+                        job.data.ticketType
+                    );
+                    await ticketService.updateTicketAiClassification(classification, job.data.ticketId);
+                    console.log(`✅ Completed AI analysis for ticket ${job.data.ticketId}`);
+                    break;
+                default:
+                    console.warn(`⚠️ Unknown job name: ${job.name}`);
+            }
+        } catch (err) {
+            console.error(`❌ Job ${job.id} failed:`, err);
+            throw err;
+        }
+    }, {
+        connection,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 1000 },
+    });
+
+    workerInstance.on('error', (err) => {
+        console.error('❌ Worker error:', err);
+    });
+
+    workerInstance.on('failed', (job, err) => {
+        console.error(`❌ Job ${job?.id} failed with error:`, err);
+    });
+
+    workerInstance.on('completed', (job) => {
+        console.log(`✅ Job ${job.id} completed successfully`);
+    });
+
+    workerInstance.on('ready', () => {
+        console.log('✅ BullMQ worker is ready and connected to Redis');
+    });
+
+    console.log('🚀 BullMQ worker is running and waiting for jobs...');
+    return workerInstance;
 }
 
-console.log('Redis config:', connection ? '✅ Loaded' : '❌ Failed');
-console.log('AI Service:', aiService ? '✅ Loaded' : '❌ Failed');
-console.log('Ticket Service:', ticketService ? '✅ Loaded' : '❌ Failed');
+async function stopTicketWorker() {
+    if (!workerInstance) return;
+    await workerInstance.close();
+    workerInstance = null;
+    console.log('BullMQ worker stopped');
+}
 
-const worker = new Worker("ticket-processing", async (job) => {
-    try {
-        switch (job.name) {
-            case "ai-analysis":
-                console.log(`🤖 Processing AI analysis for ticket ${job.data.ticketId}`);
-                const getAIClassification = await aiService.AiClassification(job.data.description, job.data.ticketType);
-                const updateTicketData = await ticketService.updateTicketAiClassification(getAIClassification, job.data.ticketId);
-                console.log(`✅ Completed AI analysis for ticket ${job.data.ticketId}`);
-                break;
-            default:
-                console.warn(`⚠️ Unknown job name: ${job.name}`);
-        }
-    } catch (err) {
-        console.error(`❌ Job ${job.id} failed:`, err);
-        throw err;
-    }
-}, {
-    connection,
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 1000 }
-});
+if (require.main === module) {
+    require('dotenv').config();
+    startTicketWorker();
 
-console.log("🚀 BullMQ worker is running and waiting for jobs...");
+    const shutdown = async () => {
+        await stopTicketWorker();
+        process.exit(0);
+    };
 
-// Add event listeners for better debugging
-worker.on('error', (err) => {
-    console.error('❌ Worker error:', err);
-});
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+}
 
-worker.on('failed', (job, err) => {
-    console.error(`❌ Job ${job?.id} failed with error:`, err);
-});
-
-worker.on('completed', (job) => {
-    console.log(`✅ Job ${job.id} completed successfully`);
-});
-
-worker.on('ready', () => {
-    console.log('✅ Worker is ready and connected to Redis');
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, closing worker...');
-    await worker.close();
-    process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-    console.log('SIGINT received, closing worker...');
-    await worker.close();
-    process.exit(0);
-});
+module.exports = { startTicketWorker, stopTicketWorker };
