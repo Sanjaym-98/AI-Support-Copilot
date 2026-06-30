@@ -217,10 +217,10 @@ ticket.get('/statusWorkflow',commonService.authenticateAndAuthorize(["AGENT"]),a
 
 
 
-ticket.patch('/status', commonService.authenticateAndAuthorize(["AGENT"]), async(req, res) => {
+const updateTicketStatusHandler = async (req, res) => {
     try {
-        const statusId = req.query.statusId;
-        const ticketId = req.query.ticketId;
+        const statusId = req.body?.statusId ?? req.query.statusId;
+        const ticketId = req.body?.ticketId ?? req.query.ticketId;
 
         if (!statusId || !ticketId) {
             return res.status(400).json({
@@ -251,8 +251,10 @@ ticket.patch('/status', commonService.authenticateAndAuthorize(["AGENT"]), async
         return res.status(500).json({
             success: false,
             message: err.message,
-            stack: err.stack // optional, for debugging
         });
     }
-});
+};
+
+ticket.post('/status', commonService.authenticateAndAuthorize(["AGENT"]), updateTicketStatusHandler);
+ticket.patch('/status', commonService.authenticateAndAuthorize(["AGENT"]), updateTicketStatusHandler);
 module.exports=ticket

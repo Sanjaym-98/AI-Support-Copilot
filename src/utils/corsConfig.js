@@ -10,7 +10,7 @@ const corsOptions = {
         if (isAllowedOrigin(origin)) return callback(null, true);
         callback(null, false);
     },
-    credentials: true,
+    credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'token', 'Token', 'Accept', 'Origin', 'X-Requested-With'],
     optionsSuccessStatus: 204,
